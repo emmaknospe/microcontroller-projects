@@ -1,0 +1,10 @@
+# To auto-connect to WiFi
+CIRCUITPY_WIFI_SSID="bagel store"
+CIRCUITPY_WIFI_PASSWORD="bodosbagels"
+
+# For OpenWeather API
+OPENWEATHER_KEY="1aa9a8e0b87ba0f0f68bfa4d628c7852"
+LOCATION="Washington, D.C., US"
+
+CIRCUITPY_WEB_API_PASSWORD="newyork"
+CIRCUITPY_WEB_API_PORT=80

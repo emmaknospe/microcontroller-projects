@@ -1,5 +1,8 @@
 import dataclasses
 import json
+import shutil
+import subprocess
+from pathlib import Path
 from typing import Iterable
 
 import boto3
@@ -77,6 +80,11 @@ def filter_and_sort_flashes(flashes: Iterable[CircuitPythonFlash]) -> Iterable[C
     return sorted_flashes
 
 
+def flash_downloaded(flash: CircuitPythonFlash) -> bool:
+    flash_path = flashes_dir / flash.microcontroller / f"{flash.version}.uf2"
+    return flash_path.exists()
+
+
 def download_flash(flash: CircuitPythonFlash):
     flash_path = flashes_dir / flash.microcontroller / f"{flash.version}.uf2"
     flash_path.parent.mkdir(parents=True, exist_ok=True)
@@ -86,3 +94,20 @@ def download_flash(flash: CircuitPythonFlash):
     s3 = boto3.client("s3", region_name="us-east-1")
     s3.download_file(CIRCUITPYTHON_REPOSITORY_BUCKET, flash.key, flash_path)
     click.echo(f"Downloaded {flash.microcontroller} {flash.version}")
+
+
+def flash_device(flash: CircuitPythonFlash, device):
+    flash_path = flashes_dir / flash.microcontroller / f"{flash.version}.uf2"
+    if not flash_path.exists():
+        raise FileNotFoundError(f"Flash {flash.microcontroller} {flash.version} not downloaded")
+    # flash the device
+    location = Path('/Volumes') / device.fs_name / flash_path.name
+    print(location)
+    output_file_path = Path('/Volumes') / device.fs_name / flash_path.name
+    output_file_path.touch()
+    output_file = open(output_file_path, "wb")
+    with open(str(flash_path), "rb") as input_file:
+        while chunk := input_file.read(1024):
+            output_file.write(chunk)
+    click.echo("Closed destination file. Waiting for copy to complete.")
+    output_file.close()
