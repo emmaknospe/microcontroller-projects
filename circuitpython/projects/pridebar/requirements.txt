@@ -1,0 +1,6 @@
+adafruit_requests
+adafruit_httpserver
+adafruit_connection_manager
+neopixel
+asyncio
+adafruit_ticks

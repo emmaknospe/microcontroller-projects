@@ -30,8 +30,8 @@ Adafruit_NeoPixel pixels(NUMPIXELS, PIN_NEOPIXEL, NEO_GRB + NEO_KHZ800);
 
 // RP2040 wired
 #define RFM69_CS   10
-#define RFM69_INT  3
-#define RFM69_RST  2
+#define RFM69_INT  2
+#define RFM69_RST  3
 
 // Singleton instance of the radio driver
 RH_RF69 rf69(RFM69_CS, RFM69_INT);

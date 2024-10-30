@@ -15,6 +15,7 @@
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
+#include "Adafruit_MAX1704X.h"
 
 #include "Adafruit_seesaw.h"
 
@@ -31,6 +32,34 @@ Adafruit_seesaw ss;
 int32_t encoder_position;
 
 #define NUMPIXELS        1
+
+
+const uint8_t EMMA_LOGO[72] PROGMEM = {
+    0b11111111, 0b11111111, 0b11111111,
+    0b10000000, 0b00000000, 0b00000001,
+    0b10111111, 0b11111111, 0b11111001,
+    0b10100000, 0b00000000, 0b00001001,
+    0b10100111, 0b11110000, 0b00001001,
+    0b10100100, 0b00010000, 0b00001001,
+    0b10100100, 0b00010000, 0b00001001,
+    0b10100111, 0b11010000, 0b00001001,
+    0b10100100, 0b00010000, 0b00001001,
+    0b10100100, 0b00010000, 0b00001001,
+    0b10100111, 0b11110000, 0b00001001,
+    0b10100000, 0b00000000, 0b00001001,
+    0b10111111, 0b11111111, 0b11111001,
+    0b10000000, 0b00000000, 0b00000001,
+    0b11111111, 0b11111111, 0b11111111,
+    0b00010001, 0b00010001, 0b00010000,
+    0b00000000, 0b00000000, 0b00000000,
+    0b00010001, 0b00010001, 0b00010000,
+    0b00000000, 0b00000000, 0b00000000,
+    0b00010001, 0b00010001, 0b00010000,
+    0b00000000, 0b00000000, 0b00000000,
+    0b00010001, 0b00010001, 0b00010000,
+    0b00000000, 0b00000000, 0b00000000,
+    0b00010001, 0b00010001, 0b00010000
+};
 
 Adafruit_NeoPixel pixels(NUMPIXELS, PIN_NEOPIXEL, NEO_GRB + NEO_KHZ800);
 
@@ -65,20 +94,66 @@ RHReliableDatagram rf69_manager(rf69, CLIENT_ADDRESS);
 
 int16_t packetnum = 0;  // packet counter, we increment per xmission
 
+
+// LIPO battery gauge
+Adafruit_MAX17048 maxlipo;
+bool max17048_found = false;
+
+
+void errblink(void) {
+  pixels.setPixelColor(0, pixels.Color(100, 0, 0));
+  pixels.show();
+  delay(100);
+  pixels.setPixelColor(0, pixels.Color(0, 0, 0));
+  pixels.show();
+  delay(100);
+}
+
 void setup() {
   Serial.begin(9600);
-  while (!Serial) delay(1); // Wait for Serial Console (comment out line if no computer)
+  //while (!Serial) delay(1); // Wait for Serial Console (comment out line if no computer)
+
+  Blink(40, 3); // blink LED 3 times, 40ms between blinks
+
+#if defined(NEOPIXEL_POWER)
+  // If this board has a power control pin, we must set it to output and high
+  // in order to enable the NeoPixels. We put this in an #if defined so it can
+  // be reused for other boards without compilation errors
+  pinMode(NEOPIXEL_POWER, OUTPUT);
+  digitalWrite(NEOPIXEL_POWER, HIGH);
+#endif
+
+  pixels.begin(); // INITIALIZE NeoPixel strip object (REQUIRED)
+  pixels.setBrightness(20); // not so bright
+  pixels.clear(); // Set all pixel colors to 'off'
 
   // SSD1306_SWITCHCAPVCC = generate display voltage from 3.3V internally
   if(!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) {
     Serial.println(F("SSD1306 allocation failed"));
-    for(;;); // Don't proceed, loop forever
+    while (1) {
+      errblink();
+    }
   }
+
+  display.setTextSize(1);
+  display.setTextColor(SSD1306_WHITE, SSD1306_BLACK);
+  display.setCursor(0, 0);
+  display.clearDisplay();
+  // logo is 24x24
+  // draw centered
+  display.drawBitmap((SCREEN_WIDTH - 24) / 2, (SCREEN_HEIGHT - 24) / 2, EMMA_LOGO, 24, 24, SSD1306_WHITE);
+  display.display(); // show splashscreen
 
   Serial.println("Looking for seesaw!");
 
   if (! ss.begin(SEESAW_ADDR)) {
     Serial.println("Couldn't find seesaw on default address");
+    display.println("Err: NXSEESAW");
+    display.display();
+    display.clearDisplay();
+    while (1) {
+      errblink();
+    }
   }
 
   Serial.println("seesaw started");
@@ -86,7 +161,11 @@ void setup() {
   if (version  != 5740){
     Serial.print("Wrong firmware loaded? ");
     Serial.println(version);
-    while(1) delay(10);
+    display.clearDisplay();
+    display.println("Err: SEESAWFW");
+    while (1) {
+      errblink();
+    }
   }
   Serial.println("Found Product 5740");
 
@@ -103,10 +182,6 @@ void setup() {
   ss.enableEncoderInterrupt();
   ss.setGPIOInterrupts((uint32_t)1 << SS_SWITCH_UP, 1);
 
-  // Show initial display buffer contents on the screen --
-  // the library initializes this with an Adafruit splash screen.
-  display.display();
-
   pinMode(RFM69_RST, OUTPUT);
   digitalWrite(RFM69_RST, LOW);
 
@@ -119,15 +194,39 @@ void setup() {
   digitalWrite(RFM69_RST, LOW);
   delay(10);
 
+  int attempts = 0;
+  while (attempts++ < 3) {
+    Serial.println(F("Couldnt find Adafruit MAX17048?\nMake sure a battery is plugged in!"));
+    delay(200);
+    if (maxlipo.begin()) {
+      max17048_found = true;
+      break;
+    }
+  }
+  Serial.print(F("Found MAX17048"));
+  Serial.print(F(" with Chip ID: 0x"));
+  Serial.println(maxlipo.getChipID(), HEX);
+
   if (!rf69.init()) {
     Serial.println("RFM69 radio init failed");
-    while (1);
+    display.clearDisplay();
+    display.println("Err: RFM69INIT");
+    display.display();
+    while (1) {
+      errblink();
+    }
   }
   Serial.println("RFM69 radio init OK!");
   // Defaults after init are 434.0MHz, modulation GFSK_Rb250Fd250, +13dbM (for low power module)
   // No encryption
   if (!rf69.setFrequency(RF69_FREQ)) {
     Serial.println("setFrequency failed");
+    display.clearDisplay();
+    display.println("Err: RFM69FREQ");
+    display.display();
+    while (1) {
+      errblink();
+    }
   }
 
   // If you are using a high power RF69 eg RFM69HW, you *must* set a Tx power with the
@@ -141,21 +240,17 @@ void setup() {
 
   Serial.print("RFM69 radio @");  Serial.print((int)RF69_FREQ);  Serial.println(" MHz");
 
-#if defined(NEOPIXEL_POWER)
-  // If this board has a power control pin, we must set it to output and high
-  // in order to enable the NeoPixels. We put this in an #if defined so it can
-  // be reused for other boards without compilation errors
-  pinMode(NEOPIXEL_POWER, OUTPUT);
-  digitalWrite(NEOPIXEL_POWER, HIGH);
-#endif
-
-  pixels.begin(); // INITIALIZE NeoPixel strip object (REQUIRED)
-  pixels.setBrightness(20); // not so bright
-  pixels.clear(); // Set all pixel colors to 'off'
-
   rf69_manager.setThisAddress(CLIENT_ADDRESS);
   Serial.print("Address: ");
   Serial.println(rf69_manager.thisAddress(), HEX);
+  delay(3000);
+  display.clearDisplay();
+  display.print("act @");
+  display.print((int)RF69_FREQ);
+  display.println(" MHz");
+  display.print("Addr: ");
+  display.println(rf69_manager.thisAddress(), HEX);
+  display.display();
   rf69_manager.setTimeout(500);
 }
 
@@ -214,8 +309,30 @@ uint8_t current_length = 1;
 
 char current_char = 'A';
 
+void voltage_check(void) {
+    if (max17048_found) {
+        float cellVoltage = maxlipo.cellVoltage();
+        float cellPercent = maxlipo.cellPercent();
+
+        Serial.print("VBat: "); Serial.print(cellVoltage); Serial.print(" mV\t");
+        Serial.print("SoC: "); Serial.print(cellPercent); Serial.println("%");
+
+        int oldCursorX = display.getCursorX();
+        int oldCursorY = display.getCursorY();
+        // move to the bottom of the screen
+        display.setCursor(0, 56);
+        display.print(cellVoltage); display.print(" V");
+        display.print(" "); display.print(cellPercent); display.println("%");
+        display.setCursor(oldCursorX, oldCursorY);
+        display.display();
+    } else {
+        display.setCursor(0, 56);
+        display.println("No MAX17048 found");
+        display.display();
+    }
+}
+
 void text_entry_init(void) {
-    display.clearDisplay();
     display.setTextSize(1);
     display.setTextColor(SSD1306_WHITE, SSD1306_BLACK);
     display.setCursor(0, 0);
@@ -268,6 +385,8 @@ void text_entry(void) {
 
 
 void loop() {
+    display.clearDisplay();
+    voltage_check();
     text_entry();
     // text is now entered, transmit
     Serial.print("Sending "); Serial.print((char*)data); Serial.print(" to "); Serial.println(SERVER_ADDRESS);
