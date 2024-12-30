@@ -71,4 +71,4 @@ def write():
             cpx.red_led = False
             time.sleep(0.2)
 
-write()
+read()

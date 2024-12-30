@@ -1,0 +1,6 @@
+neopixel
+adafruit_pixelbuf
+adafruit_neokey
+adafruit_seesaw
+adafruit_bus_device
+adafruit_irremote

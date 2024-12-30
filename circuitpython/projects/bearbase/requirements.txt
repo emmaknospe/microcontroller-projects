@@ -1,0 +1,4 @@
+neopixel
+adafruit_pixelbuf
+adafruit_bus_device
+adafruit_tlv493d
