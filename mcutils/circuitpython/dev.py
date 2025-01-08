@@ -4,6 +4,7 @@ import shutil
 import click
 
 from mcutils.circuitpython.dependencies import load_all_libraries, install_library
+from mcutils.constants import VOLUMES_DIR
 from mcutils.project import Project
 
 
@@ -15,7 +16,7 @@ def read_requirements(requirements: Path):
         return [line.strip() for line in f.readlines() if not line.startswith("#") and line.strip() != ""]
 
 
-def load_project(project: Project, device=Path("/Volumes/CIRCUITPY"), skip_deps=False):
+def load_project(project: Project, device=VOLUMES_DIR / "CIRCUITPY", skip_deps=False):
     """
     Load a project to a device called CIRCUITPY
     """

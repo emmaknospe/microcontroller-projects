@@ -11,6 +11,7 @@ from simple_term_menu import TerminalMenu
 
 from mcutils.circuitpython.dependencies import load_all_libraries
 from mcutils.circuitpython.dev import load_project
+from mcutils.constants import VOLUMES_DIR
 from mcutils.project import Project
 
 
@@ -28,7 +29,7 @@ def load(project_dir, device, skip_deps):
     Load a CircuitPython project to a device
     """
     project = Project.from_path(pathlib.Path(project_dir))
-    load_project(project, pathlib.Path("/Volumes") / device, skip_deps=skip_deps)
+    load_project(project, VOLUMES_DIR / device, skip_deps=skip_deps)
 
 
 @dev.command()
@@ -38,7 +39,7 @@ def monitor():
     """
     # find devices in /dev/tty.* with a name of usbmodem
     devices = subprocess.check_output(["ls", "/dev/"]).decode().split()
-    devices = [device for device in devices if "tty.usbmodem" in device]
+    devices = [device for device in devices if "tty.usbmodem" in device or "ttyACM" in device]
     if not devices:
         click.echo("No devices found")
         return

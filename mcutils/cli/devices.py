@@ -1,11 +1,11 @@
 import dataclasses
-from pathlib import Path
 import re
 import click
 from simple_term_menu import TerminalMenu
 import difflib
 from mcutils.flash.circuitpython import load_flash_repository, filter_and_sort_flashes, flash_downloaded, \
     download_flash, flash_device
+from mcutils.constants import VOLUMES_DIR
 
 
 @dataclasses.dataclass
@@ -25,7 +25,7 @@ def devices():
 @devices.command()
 def ls():
     """
-    List attached volumes, assuming they are mounted at /Volumes
+    List attached volumes, assuming they are mounted in VOLUMES_DIR
     """
     boot_devices = list_boot_volumes()
 
@@ -96,9 +96,8 @@ def flash(microcontroller):
 
 
 def list_boot_volumes():
-    volumes_dir = Path('/Volumes')
     boot_devices = []
-    for volume in volumes_dir.iterdir():
+    for volume in VOLUMES_DIR.iterdir():
         # check for INFO_UF2.TXT
         info_uf2 = volume / 'INFO_UF2.TXT'
         if info_uf2.exists():

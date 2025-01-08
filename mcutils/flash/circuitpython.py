@@ -11,7 +11,7 @@ import tqdm
 import click
 import re
 from packaging.version import Version
-from mcutils.constants import CIRCUITPYTHON_DIR
+from mcutils.constants import CIRCUITPYTHON_DIR, VOLUMES_DIR
 
 dotenv.load_dotenv()
 
@@ -101,9 +101,9 @@ def flash_device(flash: CircuitPythonFlash, device):
     if not flash_path.exists():
         raise FileNotFoundError(f"Flash {flash.microcontroller} {flash.version} not downloaded")
     # flash the device
-    location = Path('/Volumes') / device.fs_name / flash_path.name
+    location = VOLUMES_DIR / device.fs_name / flash_path.name
     print(location)
-    output_file_path = Path('/Volumes') / device.fs_name / flash_path.name
+    output_file_path = VOLUMES_DIR / device.fs_name / flash_path.name
     output_file_path.touch()
     output_file = open(output_file_path, "wb")
     with open(str(flash_path), "rb") as input_file:
